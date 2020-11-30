@@ -1,21 +1,19 @@
 from cmu_112_graphics import *
+import SimpleMolecule
 import numpy as np
 class MyApp(App):
-    # how to use *argv:
-    # https://www.geeksforgeeks.org/args-kwargs-python/
+    # how to use *argv: https://www.geeksforgeeks.org/args-kwargs-python/
     @staticmethod
-    def matmul(*argv):
+    def matmul(*matrices):
         result = None
-        for M in argv:
+        for M in matrices:
             n, p = M.shape
-            if type(result) != np.ndarray:
-                result = M
+            if type(result) != np.ndarray: result = M
             else:
                 m, n = result.shape
                 temp = np.array([[0] * p for i in range(m)])
                 for i in range(m):
-                    for j in range(p):
-                        temp[i,j] = sum([result[i,k] * M[k,j] for k in range(n)])
+                    for j in range(p): temp[i,j] = sum([result[i,k] * M[k,j] for k in range(n)])
                 result = temp
         return result
     @staticmethod
@@ -49,10 +47,8 @@ class MyApp(App):
     def mousePressed(self, event):
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
-        if (sliderXPosX - self.sliderR <= event.x <= sliderXPosX + self.sliderR) and (sliderXPosY - self.sliderR <= event.y <= sliderXPosY + self.sliderR):
-            self.xDragging = True
-        elif (sliderYPosX - self.sliderR <= event.x <= sliderYPosX + self.sliderR) and (sliderYPosY - self.sliderR <= event.y <= sliderYPosY + self.sliderR):
-            self.yDragging = True
+        if (sliderXPosX - self.sliderR <= event.x <= sliderXPosX + self.sliderR) and (sliderXPosY - self.sliderR <= event.y <= sliderXPosY + self.sliderR): self.xDragging = True
+        elif (sliderYPosX - self.sliderR <= event.x <= sliderYPosX + self.sliderR) and (sliderYPosY - self.sliderR <= event.y <= sliderYPosY + self.sliderR): self.yDragging = True
     def mouseDragged(self, event):
         sliderXLastX, sliderXLastY = self.sliderX 
         sliderYLastX, sliderYLastY = self.sliderY
@@ -78,7 +74,6 @@ class MyApp(App):
     def redrawAll(self, canvas):
         vector = self.projection + self.offset
         vec1, vec2 = vector[:,0], vector[:,1]
-        print(vec1, vec2)
         canvas.create_line(vec1[0], vec1[1], vec2[0], vec2[1])
         r1 = 50 * (100 + vec1[2]) / 500
         r2 = 50 * (100 + vec2[2]) / 500
@@ -92,9 +87,26 @@ class MyApp(App):
         sliderYPosX, sliderYPosY = self.sliderY
         r = self.sliderR
         self.drawSlider(canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r)
+    def drawMolecule(self, canvas, smiles):
+        atomVectors = SimpleMolecule.getAtomVectors(smiles)
+        averagePosition = np.array([0,0,0])
+        numVectors = 0
+        for atom in atomVectors:
+            for vector in atomVectors[atom]:
+                numVectors += 1
+                averagePosition += vector
+        averagePosition = averagePosition / numVectors
+        for atom in atomVectors:
+            result = []
+            for vector in atomVectors[atom]:
+                result.append(vector - averagePosition)
+            atomVectors[atom] = result
+
     def drawSlider(self, canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r):
         canvas.create_rectangle(2 * self.margin, self.margin, self.width - 2 * self.margin, self.margin, fill='black')
         canvas.create_rectangle(self.width - self.margin, 2 * self.margin, self.width - self.margin, self.height - 2 * self.margin, fill='black')
         canvas.create_oval(sliderYPosX - r, sliderYPosY - r, sliderYPosX + r, sliderYPosY + r, fill='yellow')
         canvas.create_oval(sliderXPosX - r, sliderXPosY - r, sliderXPosX + r, sliderXPosY + r, fill='yellow')
-MyApp(width=400, height=400)
+    
+
+#MyApp(width=400, height=400)
