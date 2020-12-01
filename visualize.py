@@ -1,7 +1,6 @@
 from cmu_112_graphics import *
 from simpleMolecule import SimpleMolecule
 import numpy as np
-
 class MyApp(App):
     # how to use *argv: https://www.geeksforgeeks.org/args-kwargs-python/
     @staticmethod
@@ -31,57 +30,84 @@ class MyApp(App):
                             [-np.sin(theta), 0, np.cos(theta)]])
         return MyApp.matmul(rotMat, M)
     def appStarted(self):
-        self.e1 = np.array([[1],[0],[0]])
-        self.e2 = np.array([[0],[1],[0]])
-        self.lastX, self.lastY = None, None
-        self.offset = np.array([[self.width / 2],[self.height/2],[0]])
-        self.vector = np.array([[-100,100],[0,0],[0,0]])
+        self.initializeWindowDims(400,400)
+        self.intiializeSliderStates()
+        self.initializeVectorStuff()
+        self.moleculeInView = None
+        self.maxRows, self.maxCols = 5, 5
+        self.molecules = {'a':SimpleMolecule('ccc'), 'b':SimpleMolecule('cccccc')}
+        self.commands = {}
+    def initializeWindowDims(self, molViewWidth, molViewHeight):
+        self.molViewWidth, self.molViewHeight = molViewWidth, molViewHeight
+        self.shellWidth, self.shellHeight = self.width - self.molViewHeight, self.height
+        self.molOptionsWidth, self.molOptionsHeight = self.molViewWidth, self.height - self.molViewHeight
+    def initializeVectorStuff(self):
+        self.molRadius = 5
+        self.offset = np.array([[self.molViewWidth / 2],[self.molViewHeight/2],[0]])
+    def intiializeSliderStates(self):
         self.thetaX = 0
         self.thetaY = 0
-        self.rotator = np.eye(3)
         self.margin = 20
-        self.sliderX = self.width / 2, self.margin
-        self.sliderY = self.width - self.margin, self.width / 2
+        self.sliderX = self.molViewWidth / 2, self.margin
+        self.sliderY = self.molViewWidth - self.margin, self.molViewWidth / 2
         self.sliderR = 10
-        self.molRadius = 5
         self.xDragging = False
         self.yDragging = False
-        self.projection = self.vector
     def mousePressed(self, event):
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
         if (sliderXPosX - self.sliderR <= event.x <= sliderXPosX + self.sliderR) and (sliderXPosY - self.sliderR <= event.y <= sliderXPosY + self.sliderR): self.xDragging = True
         elif (sliderYPosX - self.sliderR <= event.x <= sliderYPosX + self.sliderR) and (sliderYPosY - self.sliderR <= event.y <= sliderYPosY + self.sliderR): self.yDragging = True
+        self.moleculeModel(event)
     def mouseDragged(self, event):
+        self.sliderModel(event)
+        self.shellModel(event)
+    def sliderModel(self, event):
         sliderXLastX, sliderXLastY = self.sliderX 
         sliderYLastX, sliderYLastY = self.sliderY
         if self.xDragging:
-            if 2 * self.margin <= event.x <= self.width - 2 * self.margin: self.sliderX = event.x, sliderXLastY
+            if 2 * self.margin <= event.x <= self.molViewWidth - 2 * self.margin: self.sliderX = event.x, sliderXLastY
             elif event.x < 2 * self.margin: self.sliderX = 2 * self.margin, sliderXLastY
-            elif event.x > self.width - 2 * self.margin: self.sliderX = self.width - 2 * self.margin, sliderXLastY
+            elif event.x > self.molViewWidth - 2 * self.margin: self.sliderX = self.molViewWidth - 2 * self.margin, sliderXLastY
         elif self.yDragging:
-            if 2 * self.margin <= event.y <= self.height - 2 * self.margin: self.sliderY = sliderYLastX, event.y
+            if 2 * self.margin <= event.y <= self.molViewHeight - 2 * self.margin: self.sliderY = sliderYLastX, event.y
             elif 2 * self.margin > event.y: self.sliderY = sliderYLastX, 2 * self.margin
-            elif self.height - 2 * self.margin < event.y: self.sliderY = sliderYLastX, self.height - 2 * self.margin
-        totalXSliderLength = (self.width - 2 * self.margin) - 2 * self.margin
-        totalYSliderLength = (self.height - 2 * self.margin) - 2 * self.margin
+            elif self.molViewHeight - 2 * self.margin < event.y: self.sliderY = sliderYLastX, self.molViewHeight - 2 * self.margin
+        totalXSliderLength = (self.molViewWidth - 2 * self.margin) - 2 * self.margin
+        totalYSliderLength = (self.molViewHeight - 2 * self.margin) - 2 * self.margin
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
         self.thetaX = ((sliderYPosY - 2 * self.margin) / totalYSliderLength) * 2 * np.pi - np.pi
         self.thetaY = ((sliderXPosX - 2 * self.margin) / totalXSliderLength) * 2 * np.pi - np.pi
-        self.rotateObject()
+    def moleculeModel(self, event):
+        count = 0
+        for molecule in self.molecules:
+            if count >= self.maxCols * self.maxRows: pass
+            x0, y0, x1, y1 = self.getCellBoundsOfMolCell(count)
+            if x0 <= event.x <= x1 and y0 <= event.y <= y1:
+                self.moleculeInView = molecule
+            count += 1
+    def getCellBoundsOfMolCell(self, count):
+        row = count // self.maxRows
+        col = count % self.maxCols
+        cellWidth, cellHeight = (self.molOptionsWidth - 2 * self.margin) / self.maxCols, (self.molOptionsHeight - 2 * self.margin) / self.maxRows
+        x0, y0 = self.margin + col * cellWidth, self.margin + row * cellHeight
+        x1, y1 = x0 + cellWidth, y0 + cellHeight
+        offset = self.height - self.molOptionsHeight
+        return x0, y0 + offset, x1, y1 + offset
+        
+    def shellModel(self, event):
+        pass
     def mouseReleased(self, event):
         self.xDragging, self.yDragging = False, False
-    def rotateObject(self):
-        self.projection = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, self.vector))
     def redrawAll(self, canvas):
-        vector = self.projection + self.offset
-        vec1, vec2 = vector[:,0], vector[:,1]
-        self.drawMolecule(canvas, 'ccccc')
-        sliderXPosX, sliderXPosY = self.sliderX
-        sliderYPosX, sliderYPosY = self.sliderY
-        r = self.sliderR
-        self.drawSlider(canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r)
+        self.drawSlider(canvas)
+        self.drawMolOptionsView(canvas)
+        self.drawMolView(canvas)
+    def drawMolView(self, canvas):
+        for molecule in self.molecules:
+            if molecule == self.moleculeInView:
+                self.drawMolecule(canvas, self.molecules[molecule].smiles)
     def drawMolecule(self, canvas, smiles):
         a = SimpleMolecule(smiles)
         bondVectors = a.bondVectors
@@ -161,9 +187,22 @@ class MyApp(App):
                 C.append(B[j])
                 j += 1
         return C
-    def drawSlider(self, canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r):
-        canvas.create_rectangle(2 * self.margin, self.margin, self.width - 2 * self.margin, self.margin, fill='black')
-        canvas.create_rectangle(self.width - self.margin, 2 * self.margin, self.width - self.margin, self.height - 2 * self.margin, fill='black')
+    def drawMolOptionsView(self, canvas):
+        count = 0
+        for molecule in self.molecules:
+            x0, y0, x1, y1 = self.getCellBoundsOfMolCell(count)
+            color = "white"
+            if molecule == self.moleculeInView: color = "lightGreen"
+            canvas.create_rectangle(x0, y0, x1, y1, fill=color)
+            canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=molecule)
+            count += 1
+            if count >= self.maxRows * self.maxCols: break
+    def drawSlider(self, canvas):
+        sliderXPosX, sliderXPosY = self.sliderX
+        sliderYPosX, sliderYPosY = self.sliderY
+        r = self.sliderR
+        canvas.create_rectangle(2 * self.margin, self.margin, self.molViewWidth - 2 * self.margin, self.margin, fill='black')
+        canvas.create_rectangle(self.molViewWidth - self.margin, 2 * self.margin, self.molViewWidth - self.margin, self.molViewHeight - 2 * self.margin, fill='black')
         canvas.create_oval(sliderYPosX - r, sliderYPosY - r, sliderYPosX + r, sliderYPosY + r, fill='yellow')
         canvas.create_oval(sliderXPosX - r, sliderXPosY - r, sliderXPosX + r, sliderXPosY + r, fill='yellow')
-MyApp(width=400, height=400)
+MyApp(width=1200, height=600)
