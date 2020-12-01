@@ -1,5 +1,4 @@
 import numpy as np
-from visualize import *
 class SimpleMolecule(object):
     @staticmethod
     def simpleMolecule(s, firstPass = True):
@@ -75,12 +74,12 @@ class SimpleMolecule(object):
             thirdAtom = restOfMolecule[1]
             fourthAtom = restOfMolecule[2]
             if chainPosition % 2 == 0:
-                secondAtomVector = np.array([0, -50, np.sin(tetrahedralAngle / 2)])
-                thirdAtomVector  = np.array([0, -50, -np.sin(tetrahedralAngle / 2)])
+                secondAtomVector = np.array([0, -50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                thirdAtomVector = np.array([0, -50 * np.cos(tetrahedralAngle / 2), -np.sin(tetrahedralAngle / 2)])
                 fourthAtomVector  = np.array([50 * np.cos((np.pi / 2) - (tetrahedralAngle / 2)), 50 * np.sin((np.pi / 2) - (tetrahedralAngle / 2)), 0])
             else:
-                secondAtomVector = np.array([0, 50, np.sin(tetrahedralAngle / 2)])
-                thirdAtomVector = np.array([0, 50, -np.sin(tetrahedralAngle / 2)])
+                secondAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                thirdAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), -np.sin(tetrahedralAngle / 2)])
                 fourthAtomVector = np.array([50 * np.cos((3 * np.pi / 2) + (tetrahedralAngle / 2)), 50 * np.sin((3 * np.pi / 2) + (tetrahedralAngle / 2)), 0])
             result[secondAtom] = result.get(secondAtom, []) + [vectorAtChainPosition + secondAtomVector]
             result[thirdAtom] = result.get(thirdAtom, []) + [vectorAtChainPosition + thirdAtomVector]
@@ -91,8 +90,55 @@ class SimpleMolecule(object):
             restOfMolecule = SimpleMolecule.getRestOfMolecule(restOfMolecule[-1], bonded=True)
         return result
     @staticmethod
-    def getBondVectors(s):
-        pass
+    def getAtomAndBondVectors(s):
+        molecule = SimpleMolecule.simpleMolecule(s)
+        chainLength = SimpleMolecule.getChainLength(molecule)
+        if s == '': return
+        atom = s[0]
+        if atom != 'c': raise Exception('Only carbon chains are supported')
+        vectorAtChainPosition = np.array([0,0,0])
+        atomVectors = {atom:[vectorAtChainPosition]}
+        bondVectors = []
+        restOfMolecule = SimpleMolecule.getRestOfMolecule(s)
+        firstAtom = restOfMolecule.pop(0)
+        firstAtomListOfVectors = atomVectors.get(firstAtom, [])
+        tetrahedralAngle = (109.5 / 180) * np.pi
+        firstAtomVector = np.array([50 * np.cos((np.pi / 2) + tetrahedralAngle / 2), 50 * np.sin((np.pi / 2) + tetrahedralAngle / 2), 0])
+        radiusVector = np.array([5 * np.cos((np.pi / 2) + tetrahedralAngle / 2), 5 * np.sin((np.pi / 2) + tetrahedralAngle / 2), 0])
+        firstAtomBondVector = firstAtomVector - radiusVector
+        vectorAtChainPositionBondVector = vectorAtChainPosition + radiusVector
+        firstAtomListOfVectors += [firstAtomVector]
+        atomVectors[firstAtom] = firstAtomListOfVectors
+        bondVectors.append(np.array([vectorAtChainPositionBondVector, firstAtomBondVector]).T)
+        for chainPosition in range(chainLength):
+            secondAtom = restOfMolecule[0]
+            thirdAtom = restOfMolecule[1]
+            fourthAtom = restOfMolecule[2]
+            if chainPosition % 2 == 0:
+                secondAtomVector = np.array([0, -50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                secondRadiusVector = np.array([0, -5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                thirdAtomVector  = np.array([0, -50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                thirdRadiusVector  = np.array([0, -5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                fourthAtomVector  = np.array([50 * np.cos((np.pi / 2) - (tetrahedralAngle / 2)), 50 * np.sin((np.pi / 2) - (tetrahedralAngle / 2)), 0])
+                fourthRadiusVector = np.array([5 * np.cos((np.pi / 2) - (tetrahedralAngle / 2)), 5 * np.sin((np.pi / 2) - (tetrahedralAngle / 2)), 0])
+            else:
+                secondAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                secondRadiusVector = np.array([0, 5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                thirdAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                thirdRadiusVector  = np.array([0, 5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                fourthAtomVector = np.array([50 * np.cos((3 * np.pi / 2) + (tetrahedralAngle / 2)), 50 * np.sin((3 * np.pi / 2) + (tetrahedralAngle / 2)), 0])
+                fourthRadiusVector = np.array([5 * np.cos((3 * np.pi / 2) + (tetrahedralAngle / 2)), 5 * np.sin((3 * np.pi / 2) + (tetrahedralAngle / 2)), 0])
+            atomVectors[secondAtom] = atomVectors.get(secondAtom, []) + [vectorAtChainPosition + secondAtomVector]
+            atomVectors[thirdAtom] = atomVectors.get(thirdAtom, []) + [vectorAtChainPosition + thirdAtomVector]
+            fourthAtom = fourthAtom[0]
+            atomVectors[fourthAtom] = atomVectors.get(fourthAtom, []) + [vectorAtChainPosition + fourthAtomVector]
+            bondVectors.append(np.array([secondAtomVector - secondRadiusVector + vectorAtChainPosition, vectorAtChainPosition + secondRadiusVector]).T)
+            bondVectors.append(np.array([thirdAtomVector - thirdRadiusVector + vectorAtChainPosition, vectorAtChainPosition + thirdRadiusVector]).T)
+            bondVectors.append(np.array([fourthAtomVector - fourthRadiusVector + vectorAtChainPosition, vectorAtChainPosition + fourthRadiusVector]).T)
+            vectorAtChainPosition = vectorAtChainPosition + fourthAtomVector
+            atom = restOfMolecule[-1][0]
+            restOfMolecule = SimpleMolecule.getRestOfMolecule(restOfMolecule[-1], bonded=True)
+        return (atomVectors, bondVectors)
     @staticmethod
     def getChainLength(molecule):
         if molecule == {}: return 0
@@ -114,10 +160,66 @@ class SimpleMolecule(object):
         if bonded: hydrogens -= 1
         restOfMolecule = ['h' for i in range(hydrogens)] + branch + nonBranch + trailingMolecule
         return restOfMolecule
+    @staticmethod
+    def sortBondAndAtomVectors(L, depth = 0):
+        if (len(L) < 2):
+            return L
+        else:
+            # No need for complicated loops- just merge sort each half, then merge!
+            mid = len(L)//2
+            left = SimpleMolecule.sortBondAndAtomVectors(L[:mid], depth + 1)
+            right = SimpleMolecule.sortBondAndAtomVectors(L[mid:], depth + 1)
+            return SimpleMolecule.merge(left, right)
+    @staticmethod
+    def merge(A, B):
+        # iterative (ugh) and destructive (double ugh), but practical...
+        C = [ ]
+        i = j = 0
+        while ((i < len(A)) or (j < len(B))):
+            try:
+                if type(A[i]) == np.ndarray: # i.e. it is a bondVector
+                    valInA = min(A[i][2,0], A[i][2,1])
+                else: # i.e. it is a tuple of an atomVector
+                    valInA = A[i][1][2]
+                if type(B[j]) == np.ndarray: # similarly as for A
+                    valInB = min(B[j][2,0], B[j][2,1])
+                else:
+                    valInB = B[j][1][2]
+            except: pass
+            if ((j == len(B)) or ((i < len(A)) and (valInA <= valInB))):
+                C.append(A[i])
+                i += 1
+            else:
+                C.append(B[j])
+                j += 1
+        return C
+    @staticmethod
+    def getListOfAtomVectors(d):
+        result = [ ]
+        for atom in d:
+            for vector in d[atom]:
+                result.append((atom, vector))
+        return result
+    @staticmethod
+    def normalizeBondAndAtomVectors(vectors):  
+        count, average = 0, np.array([0,0,0])
+        for vector in vectors:
+            if not type(vector) == np.ndarray:
+                average = average + vector[1]
+                count += 1
+        average = average / count
+        result = [ ]
+        for vector in vectors:
+            if type(vector) == np.ndarray:
+                result.append((vector.T - average).T)
+            else:
+                result.append((vector[0], vector[1] - average))
+        return result
     def __init__(self, s):
         self.smiles = s
         self.molecule = SimpleMolecule.simpleMolecule(s)
-        self.bondVectors = SimpleMolecule.getBondVectors(s)
-        self.atomVectors = SimpleMolecule.getAtomVectors(s)
+        atomAndBondVectors = SimpleMolecule.getAtomAndBondVectors(s)
+        self.atomVectors = atomAndBondVectors[0]
+        self.bondVectors = atomAndBondVectors[1]
     def __repr__(self):
         return (str(self.molecule))

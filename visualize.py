@@ -1,12 +1,14 @@
 from cmu_112_graphics import *
-import SimpleMolecule
+from simpleMolecule import SimpleMolecule
 import numpy as np
+import copy
 class MyApp(App):
     # how to use *argv: https://www.geeksforgeeks.org/args-kwargs-python/
     @staticmethod
     def matmul(*matrices):
         result = None
         for M in matrices:
+            if len(M.shape) == 1: M = np.array([[M[i]] for i in range(len(M))])
             n, p = M.shape
             if type(result) != np.ndarray: result = M
             else:
@@ -41,6 +43,7 @@ class MyApp(App):
         self.sliderX = self.width / 2, self.margin
         self.sliderY = self.width - self.margin, self.width / 2
         self.sliderR = 10
+        self.molRadius = 5
         self.xDragging = False
         self.yDragging = False
         self.projection = self.vector
@@ -60,19 +63,19 @@ class MyApp(App):
             if 2 * self.margin <= event.y <= self.height - 2 * self.margin: self.sliderY = sliderYLastX, event.y
             elif 2 * self.margin > event.y: self.sliderY = sliderYLastX, 2 * self.margin
             elif self.height - 2 * self.margin < event.y: self.sliderY = sliderYLastX, self.height - 2 * self.margin
-        self.rotateObject()
-    def mouseReleased(self, event):
-        self.xDragging, self.yDragging = False, False
-    def rotateObject(self):
         totalXSliderLength = (self.width - 2 * self.margin) - 2 * self.margin
         totalYSliderLength = (self.height - 2 * self.margin) - 2 * self.margin
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
-        thetaX = ((sliderYPosY - 2 * self.margin) / totalYSliderLength) * 2 * np.pi - np.pi
-        thetaY = ((sliderXPosX - 2 * self.margin) / totalXSliderLength) * 2 * np.pi - np.pi
-        self.projection = MyApp.rotX(thetaX, MyApp.rotY(thetaY, self.vector))
+        self.thetaX = ((sliderYPosY - 2 * self.margin) / totalYSliderLength) * 2 * np.pi - np.pi
+        self.thetaY = ((sliderXPosX - 2 * self.margin) / totalXSliderLength) * 2 * np.pi - np.pi
+        self.rotateObject()
+    def mouseReleased(self, event):
+        self.xDragging, self.yDragging = False, False
+    def rotateObject(self):
+        self.projection = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, self.vector))
     def redrawAll(self, canvas):
-        vector = self.projection + self.offset
+        '''vector = self.projection + self.offset
         vec1, vec2 = vector[:,0], vector[:,1]
         canvas.create_line(vec1[0], vec1[1], vec2[0], vec2[1])
         r1 = 50 * (100 + vec1[2]) / 500
@@ -82,31 +85,57 @@ class MyApp(App):
             canvas.create_oval(vec2[0] - r2, vec2[1] - r2, vec2[0] + r2, vec2[1] + r2, fill="green", width=2 * (100 + vec1[2]) / 1000)
         else:
             canvas.create_oval(vec2[0] - r2, vec2[1] - r2, vec2[0] + r2, vec2[1] + r2, fill="green", width=2 * (100 + vec1[2]) / 1000)
-            canvas.create_oval(vec1[0] - r1, vec1[1] - r1, vec1[0] + r1, vec1[1] + r1, fill="red", width=2 * (100 + vec1[2]) / 1000)
+            canvas.create_oval(vec1[0] - r1, vec1[1] - r1, vec1[0] + r1, vec1[1] + r1, fill="red", width=2 * (100 + vec1[2]) / 1000)'''
+        self.drawMolecule(canvas, 'ccc')
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
         r = self.sliderR
         self.drawSlider(canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r)
+    def rotateBondAndAtomVectors(self, thetaX, thetaY, bondAndAtomVectors):
+        result = []
+        for vector in bondAndAtomVectors:
+            if type(vector) == np.ndarray:
+                vec1, vec2 = vector[:, 0], vector[:,1]
+                vec1 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec1))
+                vec2 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec2))
+                vec1 = (vec1.T)[0]
+                vec2 = (vec2.T)[0]
+                result.append(np.array([vec1, vec2]).T)
+            else:
+                atom, vector = vector[0], vector[1]
+                vector = MyApp.rotX(thetaX, MyApp.rotY(thetaY, vector))
+                vector = np.array([vector[i][0] for i in range(len(vector))])
+                result.append((atom, vector.T))
+        return result
     def drawMolecule(self, canvas, smiles):
-        atomVectors = SimpleMolecule.getAtomVectors(smiles)
-        averagePosition = np.array([0,0,0])
-        numVectors = 0
-        for atom in atomVectors:
-            for vector in atomVectors[atom]:
-                numVectors += 1
-                averagePosition += vector
-        averagePosition = averagePosition / numVectors
-        for atom in atomVectors:
-            result = []
-            for vector in atomVectors[atom]:
-                result.append(vector - averagePosition)
-            atomVectors[atom] = result
-
+        a = SimpleMolecule(smiles)
+        bondVectors = a.bondVectors
+        atomVectors = a.atomVectors
+        atomVectors = SimpleMolecule.getListOfAtomVectors(atomVectors)
+        bondAndAtomVectors = bondVectors + atomVectors
+        bondAndAtomVectors = SimpleMolecule.normalizeBondAndAtomVectors(bondAndAtomVectors)
+        #bondAndAtomVectors = self.rotateBondAndAtomVectors(self.thetaX, self.thetaY, bondAndAtomVectors)
+        sortedBondAndAtomVectors = SimpleMolecule.sortBondAndAtomVectors(bondAndAtomVectors)
+        for vector in sortedBondAndAtomVectors:
+            if type(vector) == np.ndarray:
+                vec1, vec2 = vector[:, 0], vector[:, 1]
+                vec1 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec1))
+                vec2 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec2))
+                vec1 = vec1 + self.offset
+                vec2 = vec2 + self.offset
+                canvas.create_line(vec1[0][0], vec1[1][0], vec2[0][0], vec2[1][0], fill='black')
+            else:
+                atom = vector[0]
+                vector = copy.deepcopy(vector[1])
+                if atom == 'c': color = 'red'
+                elif atom == 'h': color = 'blue'
+                else: color = 'green'
+                vector = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vector))
+                vector = vector + self.offset
+                canvas.create_oval((vector[0][0] - self.molRadius), (vector[1][0] - self.molRadius), (vector[0][0] + self.molRadius), (vector[1][0] + self.molRadius), fill=color)    
     def drawSlider(self, canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r):
         canvas.create_rectangle(2 * self.margin, self.margin, self.width - 2 * self.margin, self.margin, fill='black')
         canvas.create_rectangle(self.width - self.margin, 2 * self.margin, self.width - self.margin, self.height - 2 * self.margin, fill='black')
         canvas.create_oval(sliderYPosX - r, sliderYPosY - r, sliderYPosX + r, sliderYPosY + r, fill='yellow')
         canvas.create_oval(sliderXPosX - r, sliderXPosY - r, sliderXPosX + r, sliderXPosY + r, fill='yellow')
-    
-
-#MyApp(width=400, height=400)
+MyApp(width=400, height=400)
