@@ -1,7 +1,7 @@
 from cmu_112_graphics import *
 from simpleMolecule import SimpleMolecule
 import numpy as np
-import copy
+
 class MyApp(App):
     # how to use *argv: https://www.geeksforgeeks.org/args-kwargs-python/
     @staticmethod
@@ -75,38 +75,13 @@ class MyApp(App):
     def rotateObject(self):
         self.projection = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, self.vector))
     def redrawAll(self, canvas):
-        '''vector = self.projection + self.offset
+        vector = self.projection + self.offset
         vec1, vec2 = vector[:,0], vector[:,1]
-        canvas.create_line(vec1[0], vec1[1], vec2[0], vec2[1])
-        r1 = 50 * (100 + vec1[2]) / 500
-        r2 = 50 * (100 + vec2[2]) / 500
-        if vec1[2] < vec2[2]:
-            canvas.create_oval(vec1[0] - r1, vec1[1] - r1, vec1[0] + r1, vec1[1] + r1, fill="red", width=2 * (100 + vec1[2]) / 1000)
-            canvas.create_oval(vec2[0] - r2, vec2[1] - r2, vec2[0] + r2, vec2[1] + r2, fill="green", width=2 * (100 + vec1[2]) / 1000)
-        else:
-            canvas.create_oval(vec2[0] - r2, vec2[1] - r2, vec2[0] + r2, vec2[1] + r2, fill="green", width=2 * (100 + vec1[2]) / 1000)
-            canvas.create_oval(vec1[0] - r1, vec1[1] - r1, vec1[0] + r1, vec1[1] + r1, fill="red", width=2 * (100 + vec1[2]) / 1000)'''
-        self.drawMolecule(canvas, 'ccc')
+        self.drawMolecule(canvas, 'ccccc')
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
         r = self.sliderR
         self.drawSlider(canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r)
-    def rotateBondAndAtomVectors(self, thetaX, thetaY, bondAndAtomVectors):
-        result = []
-        for vector in bondAndAtomVectors:
-            if type(vector) == np.ndarray:
-                vec1, vec2 = vector[:, 0], vector[:,1]
-                vec1 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec1))
-                vec2 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec2))
-                vec1 = (vec1.T)[0]
-                vec2 = (vec2.T)[0]
-                result.append(np.array([vec1, vec2]).T)
-            else:
-                atom, vector = vector[0], vector[1]
-                vector = MyApp.rotX(thetaX, MyApp.rotY(thetaY, vector))
-                vector = np.array([vector[i][0] for i in range(len(vector))])
-                result.append((atom, vector.T))
-        return result
     def drawMolecule(self, canvas, smiles):
         a = SimpleMolecule(smiles)
         bondVectors = a.bondVectors
@@ -114,25 +89,78 @@ class MyApp(App):
         atomVectors = SimpleMolecule.getListOfAtomVectors(atomVectors)
         bondAndAtomVectors = bondVectors + atomVectors
         bondAndAtomVectors = SimpleMolecule.normalizeBondAndAtomVectors(bondAndAtomVectors)
-        #bondAndAtomVectors = self.rotateBondAndAtomVectors(self.thetaX, self.thetaY, bondAndAtomVectors)
-        sortedBondAndAtomVectors = SimpleMolecule.sortBondAndAtomVectors(bondAndAtomVectors)
+        bondAndAtomVectors = self.rotateBondsAndAtoms(bondAndAtomVectors)
+        sortedBondAndAtomVectors = self.sortVectors(bondAndAtomVectors)
+        scale = 300
         for vector in sortedBondAndAtomVectors:
-            if type(vector) == np.ndarray:
-                vec1, vec2 = vector[:, 0], vector[:, 1]
-                vec1 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec1))
-                vec2 = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vec2))
+            if type(vector) == list:
+                vec1, vec2 = vector
+                scaleFactor1 = (1 + vec1[2][0] / scale)
+                scaleFactor2 = (1 + vec2[2][0] / scale)
+                vec1 = vec1 * scaleFactor1
+                vec2 = vec2 * scaleFactor2
                 vec1 = vec1 + self.offset
                 vec2 = vec2 + self.offset
                 canvas.create_line(vec1[0][0], vec1[1][0], vec2[0][0], vec2[1][0], fill='black')
             else:
                 atom = vector[0]
-                vector = copy.deepcopy(vector[1])
+                vec = vector[1]
+                scaleFactor = (1 + vec[2][0] / scale)
+                radius = self.molRadius * scaleFactor
+                vec = vec * scaleFactor
                 if atom == 'c': color = 'red'
                 elif atom == 'h': color = 'blue'
                 else: color = 'green'
-                vector = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vector))
-                vector = vector + self.offset
-                canvas.create_oval((vector[0][0] - self.molRadius), (vector[1][0] - self.molRadius), (vector[0][0] + self.molRadius), (vector[1][0] + self.molRadius), fill=color)    
+                #vector = MyApp.rotX(self.thetaX, MyApp.rotY(self.thetaY, vector))
+                vector = vec + self.offset
+                canvas.create_oval((vector[0][0] - radius), (vector[1][0] - radius), (vector[0][0] + radius), (vector[1][0] + radius), fill=color)    
+    def rotateBondsAndAtoms(self, bondAndAtomVectors):
+        thetaX = self.thetaX
+        thetaY = self.thetaY
+        result = []
+        for vector in bondAndAtomVectors:
+            if type(vector) == np.ndarray:
+                vec1, vec2 = vector[:, 0], vector[:, 1]
+                vec1 = MyApp.rotX(thetaX, MyApp.rotY(thetaY, vec1))
+                vec2 = MyApp.rotX(thetaX, MyApp.rotY(thetaY, vec2))
+                result.append([vec1, vec2])
+            else:
+                atom = vector[0]
+                vec = vector[1]
+                vec = MyApp.rotX(thetaX, MyApp.rotY(thetaY, vec))
+                result.append((atom, vec))
+        return result
+    def sortVectors(self, L): # sorts vectos based on z-value (proximity to observer)
+    # from https://www.cs.cmu.edu/~112/notes/notes-recursion-part1.html
+        if (len(L) < 2):
+            return L
+        else:
+            mid = len(L)//2
+            left = self.sortVectors(L[:mid])
+            right = self.sortVectors(L[mid:])
+            return self.merge(left, right)
+    def merge(self, A, B):
+    # heavily inspired by https://www.cs.cmu.edu/~112/notes/notes-recursion-part1.html
+        C = [ ]
+        i = j = 0
+        while ((i < len(A)) or (j < len(B))):
+            try:
+                if type(A[i]) == list: # i.e. is it a bondVector
+                    valInA = min(A[i][0][2][0], A[i][1][2][0])
+                else: # i.e. is it a tuple of an atomVector
+                    valInA = A[i][1][2][0]
+                if type(B[j]) == np.ndarray: # similarly as for A[i], check for B[j]
+                    valInB = min(B[j][0][2][0], B[j][1][2][0])
+                else:
+                    valInB = B[j][1][2][0]
+            except: pass
+            if ((j == len(B)) or ((i < len(A)) and (valInA <= valInB))):
+                C.append(A[i])
+                i += 1
+            else:
+                C.append(B[j])
+                j += 1
+        return C
     def drawSlider(self, canvas, sliderXPosX, sliderXPosY, sliderYPosX, sliderYPosY, r):
         canvas.create_rectangle(2 * self.margin, self.margin, self.width - 2 * self.margin, self.margin, fill='black')
         canvas.create_rectangle(self.width - self.margin, 2 * self.margin, self.width - self.margin, self.height - 2 * self.margin, fill='black')

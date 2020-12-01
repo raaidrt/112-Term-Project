@@ -115,17 +115,17 @@ class SimpleMolecule(object):
             thirdAtom = restOfMolecule[1]
             fourthAtom = restOfMolecule[2]
             if chainPosition % 2 == 0:
-                secondAtomVector = np.array([0, -50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
-                secondRadiusVector = np.array([0, -5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
-                thirdAtomVector  = np.array([0, -50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
-                thirdRadiusVector  = np.array([0, -5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                secondAtomVector = np.array([0, -50 * np.cos(tetrahedralAngle / 2), 50 * np.sin(tetrahedralAngle / 2)])
+                secondRadiusVector = np.array([0, -5 * np.cos(tetrahedralAngle / 2), 5 * np.sin(tetrahedralAngle / 2)])
+                thirdAtomVector  = np.array([0, -50 * np.cos(tetrahedralAngle / 2), -50 * np.cos(tetrahedralAngle / 2)])
+                thirdRadiusVector  = np.array([0, -5 * np.cos(tetrahedralAngle / 2), -5 * np.cos(tetrahedralAngle / 2)])
                 fourthAtomVector  = np.array([50 * np.cos((np.pi / 2) - (tetrahedralAngle / 2)), 50 * np.sin((np.pi / 2) - (tetrahedralAngle / 2)), 0])
                 fourthRadiusVector = np.array([5 * np.cos((np.pi / 2) - (tetrahedralAngle / 2)), 5 * np.sin((np.pi / 2) - (tetrahedralAngle / 2)), 0])
             else:
-                secondAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
-                secondRadiusVector = np.array([0, 5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
-                thirdAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
-                thirdRadiusVector  = np.array([0, 5 * np.cos(tetrahedralAngle / 2), np.sin(tetrahedralAngle / 2)])
+                secondAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), 50 * np.cos(tetrahedralAngle / 2)])
+                secondRadiusVector = np.array([0, 5 * np.cos(tetrahedralAngle / 2), 5 * np.cos(tetrahedralAngle / 2)])
+                thirdAtomVector = np.array([0, 50 * np.cos(tetrahedralAngle / 2), -50 * np.cos(tetrahedralAngle / 2)])
+                thirdRadiusVector  = np.array([0, 5 * np.cos(tetrahedralAngle / 2), -5 * np.cos(tetrahedralAngle / 2)])
                 fourthAtomVector = np.array([50 * np.cos((3 * np.pi / 2) + (tetrahedralAngle / 2)), 50 * np.sin((3 * np.pi / 2) + (tetrahedralAngle / 2)), 0])
                 fourthRadiusVector = np.array([5 * np.cos((3 * np.pi / 2) + (tetrahedralAngle / 2)), 5 * np.sin((3 * np.pi / 2) + (tetrahedralAngle / 2)), 0])
             atomVectors[secondAtom] = atomVectors.get(secondAtom, []) + [vectorAtChainPosition + secondAtomVector]
@@ -160,39 +160,6 @@ class SimpleMolecule(object):
         if bonded: hydrogens -= 1
         restOfMolecule = ['h' for i in range(hydrogens)] + branch + nonBranch + trailingMolecule
         return restOfMolecule
-    @staticmethod
-    def sortBondAndAtomVectors(L, depth = 0):
-        if (len(L) < 2):
-            return L
-        else:
-            # No need for complicated loops- just merge sort each half, then merge!
-            mid = len(L)//2
-            left = SimpleMolecule.sortBondAndAtomVectors(L[:mid], depth + 1)
-            right = SimpleMolecule.sortBondAndAtomVectors(L[mid:], depth + 1)
-            return SimpleMolecule.merge(left, right)
-    @staticmethod
-    def merge(A, B):
-        # iterative (ugh) and destructive (double ugh), but practical...
-        C = [ ]
-        i = j = 0
-        while ((i < len(A)) or (j < len(B))):
-            try:
-                if type(A[i]) == np.ndarray: # i.e. it is a bondVector
-                    valInA = min(A[i][2,0], A[i][2,1])
-                else: # i.e. it is a tuple of an atomVector
-                    valInA = A[i][1][2]
-                if type(B[j]) == np.ndarray: # similarly as for A
-                    valInB = min(B[j][2,0], B[j][2,1])
-                else:
-                    valInB = B[j][1][2]
-            except: pass
-            if ((j == len(B)) or ((i < len(A)) and (valInA <= valInB))):
-                C.append(A[i])
-                i += 1
-            else:
-                C.append(B[j])
-                j += 1
-        return C
     @staticmethod
     def getListOfAtomVectors(d):
         result = [ ]
