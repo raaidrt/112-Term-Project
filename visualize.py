@@ -5,6 +5,7 @@ class MyApp(App):
     # how to use *argv: https://www.geeksforgeeks.org/args-kwargs-python/
     @staticmethod
     def matmul(*matrices):
+        # for multiplying matrices together, note args are specified in order
         result = None
         for M in matrices:
             if len(M.shape) == 1: M = np.array([[M[i]] for i in range(len(M))])
@@ -19,12 +20,14 @@ class MyApp(App):
         return result
     @staticmethod
     def rotX(theta, M):
+        # matrices from https://en.wikipedia.org/wiki/Rotation_matrix
         rotMat = np.array([[1, 0, 0],
                             [0, np.cos(theta), -np.sin(theta)],
                             [0, np.sin(theta), np.cos(theta)]])
         return MyApp.matmul(rotMat, M)
     @staticmethod
     def rotY(theta, M):
+        # matrices from https://en.wikipedia.org/wiki/Rotation_matrix
         rotMat = np.array([[np.cos(theta), 0, np.sin(theta)],
                             [0, 1, 0],
                             [-np.sin(theta), 0, np.cos(theta)]])
@@ -35,8 +38,12 @@ class MyApp(App):
         self.initializeVectorStuff()
         self.moleculeInView = None
         self.maxRows, self.maxCols = 5, 5
-        self.molecules = {'a':SimpleMolecule('ccc'), 'b':SimpleMolecule('cccccc')}
-        self.commands = {}
+        self.maxCellsInShell = 9
+        self.cellInShellMargin = 3
+        self.molecules = {}
+        self.commands = []
+        self.currentCommand = ">   "
+        self.cellHiLited = False
     def initializeWindowDims(self, molViewWidth, molViewHeight):
         self.molViewWidth, self.molViewHeight = molViewWidth, molViewHeight
         self.shellWidth, self.shellHeight = self.width - self.molViewHeight, self.height
@@ -56,12 +63,12 @@ class MyApp(App):
     def mousePressed(self, event):
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
+        self.shellModel(event)
         if (sliderXPosX - self.sliderR <= event.x <= sliderXPosX + self.sliderR) and (sliderXPosY - self.sliderR <= event.y <= sliderXPosY + self.sliderR): self.xDragging = True
         elif (sliderYPosX - self.sliderR <= event.x <= sliderYPosX + self.sliderR) and (sliderYPosY - self.sliderR <= event.y <= sliderYPosY + self.sliderR): self.yDragging = True
         self.moleculeModel(event)
     def mouseDragged(self, event):
         self.sliderModel(event)
-        self.shellModel(event)
     def sliderModel(self, event):
         sliderXLastX, sliderXLastY = self.sliderX 
         sliderYLastX, sliderYLastY = self.sliderY
@@ -95,15 +102,32 @@ class MyApp(App):
         x1, y1 = x0 + cellWidth, y0 + cellHeight
         offset = self.height - self.molOptionsHeight
         return x0, y0 + offset, x1, y1 + offset
-        
     def shellModel(self, event):
-        pass
+        cellHeight = cellHeight = (self.shellHeight - 2 * self.margin) / self.maxCellsInShell
+        lastIndex = len(self.commands)
+        x0, y0, x1, y1 = self.getShellMargins(lastIndex, cellHeight)
+        self.cellHiLited = (x0 <= event.x <= x1 and y0 <= event.y <= y1)
+    def keyPressed(self, event):
+        if self.cellHiLited:
+            if event.key == 'Enter':
+                self.evaluate(self.currentCommand)
+                self.commands.append(self.currentCommand)
+                if len(self.commands) >= self.maxCellsInShell - 1: self.commands.pop(0)
+                self.currentCommand = ">   "
+            elif event.key == 'Delete':
+                self.currentCommand = self.currentCommand[:-1]
+            else:
+                self.currentCommand += event.key
+    def evaluate(self, s):
+        L = s.split('->')
+        self.molecules[L[0][4:]] = SimpleMolecule(L[1])
     def mouseReleased(self, event):
         self.xDragging, self.yDragging = False, False
     def redrawAll(self, canvas):
         self.drawSlider(canvas)
         self.drawMolOptionsView(canvas)
         self.drawMolView(canvas)
+        self.drawShell(canvas)
     def drawMolView(self, canvas):
         for molecule in self.molecules:
             if molecule == self.moleculeInView:
@@ -156,7 +180,7 @@ class MyApp(App):
                 vec = MyApp.rotX(thetaX, MyApp.rotY(thetaY, vec))
                 result.append((atom, vec))
         return result
-    def sortVectors(self, L): # sorts vectos based on z-value (proximity to observer)
+    def sortVectors(self, L): # sorts vectors based on z-value (proximity to observer)
     # from https://www.cs.cmu.edu/~112/notes/notes-recursion-part1.html
         if (len(L) < 2):
             return L
@@ -205,4 +229,26 @@ class MyApp(App):
         canvas.create_rectangle(self.molViewWidth - self.margin, 2 * self.margin, self.molViewWidth - self.margin, self.molViewHeight - 2 * self.margin, fill='black')
         canvas.create_oval(sliderYPosX - r, sliderYPosY - r, sliderYPosX + r, sliderYPosY + r, fill='yellow')
         canvas.create_oval(sliderXPosX - r, sliderXPosY - r, sliderXPosX + r, sliderXPosY + r, fill='yellow')
+    def drawShell(self, canvas):
+        cellHeight = (self.shellHeight - 2 * self.margin) / self.maxCellsInShell
+        count = 0
+        for command in self.commands:
+            x0, y0, x1, y1 = self.getShellMargins(count, cellHeight)
+            canvas.create_rectangle(x0, y0, x1, y1)
+            canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=command, font=f'Montserrat {int(cellHeight - 10)}')
+            count += 1
+        lastIndex = len(self.commands)
+        x0, y0, x1, y1 = self.getShellMargins(lastIndex, cellHeight)
+        if self.cellHiLited: color = 'lightGreen'
+        else: color = 'white'
+        canvas.create_rectangle(x0, y0, x1, y1, fill=color)
+        currentCommand = self.currentCommand
+        canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=self.currentCommand, font=f'Montserrat {int(cellHeight - 10)}')
+    def getShellMargins(self, count, cellHeight):
+        x1 = self.width - self.margin - self.cellInShellMargin
+        x0 = self.molViewWidth + self.margin + self.cellInShellMargin
+        y0 = self.margin + self.cellInShellMargin + count * cellHeight
+        y1 = y0 + cellHeight + self.cellInShellMargin
+        return x0, y0, x1, y1
+
 MyApp(width=1200, height=600)
