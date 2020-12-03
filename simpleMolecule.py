@@ -189,4 +189,6 @@ class SimpleMolecule(object):
         self.atomVectors = atomAndBondVectors[0]
         self.bondVectors = atomAndBondVectors[1]
     def __repr__(self):
-        return (str(self.molecule))
+        return self.smiles
+    def __getitem__(self, start, stop, step):
+        pass
