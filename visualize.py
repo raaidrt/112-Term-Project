@@ -1,34 +1,9 @@
 from cmu_112_graphics import *
 from simpleMolecule import SimpleMolecule
 import numpy as np
-def matmul(*matrices):
-    # for multiplying matrices together, note matrices are specified in order
-    result = None
-    for M in matrices:
-        if len(M.shape) == 1: M = np.array([[M[i]] for i in range(len(M))])
-        n, p = M.shape
-        if type(result) != np.ndarray: result = M
-        else:
-            m, n = result.shape
-            temp = np.array([[0] * p for i in range(m)])
-            for i in range(m):
-                for j in range(p): temp[i,j] = sum([result[i,k] * M[k,j] for k in range(n)])
-            result = temp
-    return result
-def rotX(theta, M):
-    # matrices from https://en.wikipedia.org/wiki/Rotation_matrix
-    rotMat = np.array([[1, 0, 0],
-                        [0, np.cos(theta), -np.sin(theta)],
-                        [0, np.sin(theta), np.cos(theta)]])
-    return matmul(rotMat, M)
-def rotY(theta, M):
-    # matrices from https://en.wikipedia.org/wiki/Rotation_matrix
-    rotMat = np.array([[np.cos(theta), 0, np.sin(theta)],
-                        [0, 1, 0],
-                        [-np.sin(theta), 0, np.cos(theta)]])
-    return matmul(rotMat, M)
-class SimpleMoleculeViewAndShell(App):
-    # how to use *argv: https://www.geeksforgeeks.org/args-kwargs-python/
+from matrixOperations import *
+class SimpleMoleculeViewAndShell(App):    
+    # appStarted to initialization all values and states
     def appStarted(self):
         self.initializeWindowDims(400,400)
         self.intiializeSliderStates()
@@ -37,7 +12,6 @@ class SimpleMoleculeViewAndShell(App):
         self.maxRows, self.maxCols = 5, 5
         self.maxCellsInShell = 9
         self.cellInShellMargin = 3
-        self.cellInError = False
         self.molecules = {}
         self.commands = []
         self.currentCommand = ">   "
@@ -49,14 +23,21 @@ class SimpleMoleculeViewAndShell(App):
         self.splashDims = 40
         self.zScale = 300
         self.scalar = 1
+        self.error = None
+        self.cellInError = False
+        self.errorSplashCoords = (None, None)
+        self.showErrorSplash = False
+    # helper method for appStarted
     def initializeWindowDims(self, molViewWidth, molViewHeight):
         self.margin = 20
         self.molViewWidth, self.molViewHeight = molViewWidth, molViewHeight
         self.shellWidth, self.shellHeight = self.width - self.molViewHeight, self.height - self.margin
         self.molOptionsWidth, self.molOptionsHeight = self.molViewWidth, self.height - self.molViewHeight
+    # helper method for appStarted
     def initializeVectorStuff(self):
         self.molRadius = 5
         self.offset = np.array([[self.molViewWidth / 2],[self.molViewHeight/2],[0]])
+    # helper method for appStarted
     def intiializeSliderStates(self):
         self.thetaX = 0
         self.thetaY = 0
@@ -67,6 +48,7 @@ class SimpleMoleculeViewAndShell(App):
         self.xDragging = False
         self.yDragging = False
         self.zoomDragging = False
+    # for when the mouse is pressed on the canvas
     def mousePressed(self, event):
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
@@ -77,7 +59,11 @@ class SimpleMoleculeViewAndShell(App):
         elif (sliderZoomPosX - self.sliderR <= event.x <= sliderZoomPosX + self.sliderR) and (sliderZoomPosY - self.sliderR <= event.y <= sliderZoomPosY + self.sliderR): self.zoomDragging = True
         self.moleculeModel(event)
         self.clearShellButtonModel(event)
+    # for when the mouse hovers over a particular atom or cell in the shell
     def mouseMoved(self, event):
+        if self.cellInError and self.coordsOnCurrentCell(event.x, event.y):
+            self.errorSplashCoords = event.x, event.y
+        else: self.errorSplashCoords = None, None
         if self.moleculeInView == None: return
         atomVectors = self.molecules[self.moleculeInView].atomVectors
         atomVectors = SimpleMolecule.getListOfAtomVectors(atomVectors)
@@ -102,8 +88,16 @@ class SimpleMoleculeViewAndShell(App):
         self.splashX, self.splashY = None, None
         self.showSplash = False
         self.splashMolecule = None
+    # helper function to check if coords are on top of current cell (bottom-most cell in the shell)
+    def coordsOnCurrentCell(self, x, y):
+        cellHeight = (self.shellHeight - 2 * self.margin) / self.maxCellsInShell
+        lastIndex = len(self.commands)
+        x0, y0, x1, y1 = self.getShellMargins(lastIndex, cellHeight)
+        return x0 <= x <= x1 and y0 <= y <= y1
+    # for when the mouse is pressed then dragged over the canvas -> used for the sliders
     def mouseDragged(self, event):
         self.sliderModel(event)
+    # helper for mouseDragged
     def sliderModel(self, event):
         sliderXLastX, sliderXLastY = self.sliderX 
         sliderYLastX, sliderYLastY = self.sliderY
@@ -129,6 +123,7 @@ class SimpleMoleculeViewAndShell(App):
         self.thetaX = ((sliderYPosY - 2 * self.margin) / totalYSliderLength) * 2 * np.pi - np.pi
         self.thetaY = ((sliderXPosX - 2 * self.margin) / totalXSliderLength) * 2 * np.pi - np.pi
         self.scalar = ((sliderZoomPosX - 2 * self.margin) / totalZoomSliderLength + 0.5) ** 2
+    # for manipulating the molecule view model
     def moleculeModel(self, event):
         count = 0
         for molecule in self.molecules:
@@ -137,12 +132,14 @@ class SimpleMoleculeViewAndShell(App):
             if x0 <= event.x <= x1 and y0 <= event.y <= y1:
                 self.moleculeInView = molecule
             count += 1
+    # for manipulating the shell model upon interacting with the clearShell button
     def clearShellButtonModel(self, event):
         clearButtonHeight = 3 * self.margin - 2 * self.buttonMargins
         clearButtonWidth = self.shellWidth / 2 - 1.5 * self.buttonMargins
         x0, y0 = self.buttonMargins + self.molViewWidth, self.height - 3 * self.margin + self.buttonMargins
         x1, y1 = x0 + clearButtonWidth, y0 + clearButtonHeight
         if x0 <= event.x <= x1 and y0 <= event.y <= y1: self.commands = []
+    # helper to get getBounds of molecule boxes below the molView
     def getCellBoundsOfMolCell(self, count):
         row = count // self.maxRows
         col = count % self.maxCols
@@ -151,31 +148,45 @@ class SimpleMoleculeViewAndShell(App):
         x1, y1 = x0 + cellWidth, y0 + cellHeight
         offset = self.height - self.molOptionsHeight
         return x0, y0 + offset, x1, y1 + offset
+    # for manipulating the shell model
     def shellModel(self, event):
         cellHeight = cellHeight = (self.shellHeight - 2 * self.margin) / self.maxCellsInShell
         lastIndex = len(self.commands)
         x0, y0, x1, y1 = self.getShellMargins(lastIndex, cellHeight)
         self.cellHiLited = (x0 <= event.x <= x1 and y0 <= event.y <= y1)
+    # for interacting with the shell by pressing keys
     def keyPressed(self, event):
         if self.cellHiLited:
             if event.key == 'Enter':
                 try: self.evaluate(self.currentCommand)
                 except: 
+                    self.evaluateError(self.currentCommand)
                     self.cellInError = True
                     return
                 self.commands.append(self.currentCommand)
                 if len(self.commands) >= self.maxCellsInShell - 1: self.commands.pop(0)
                 self.currentCommand = ">   "
             elif event.key == 'Delete':
-                self.currentCommand = self.currentCommand[:-1]
+                if len(self.currentCommand) > 4:
+                    self.currentCommand = self.currentCommand[:-1]
                 self.cellInError = False
             else:
                 self.currentCommand += event.key
+    # evaluating strings of commands entered in the shell
     def evaluate(self, s):
         if '->' in s:
             L = s.split('->')
             varName = L[0][4:]
-            if '+' in L[1]:
+            if '[' in L[1]:
+                variable = L[1].split('[')[0]
+                args = [_ for _ in L[1].split('[')[1].split(',')]
+                args = [L[1].split('[')[1].split(',')[0], L[1].split('[')[1].split(',')[1][:-1]]
+                args = [int(_) for _ in args]
+                if len(args) == 1: start = end = args[0]
+                else: start, end = args
+                molecule = self.molecules[variable].molecule
+                returnValue = SimpleMolecule(SimpleMolecule.iloc(molecule, start, end))
+            elif '+' in L[1]:
                 operands = L[1].split('+')
                 op1 = self.molecules[operands[0]].smiles
                 op2 = self.molecules[operands[1]].smiles
@@ -183,8 +194,21 @@ class SimpleMoleculeViewAndShell(App):
             else:
                 returnValue = SimpleMolecule(L[1])
             self.molecules[varName] = returnValue
+    # evaluating command strings that contain some error in the shell
+    def evaluateError(self, s):
+        if '->' in s:
+            L = s.split('->')
+            varName = L[0][4]
+            if '[' in L[1]:
+                self.error = "Error: when using indices\nuse only pre-set variable names and\nindex numbers separated by commas\nPress Backspace and try agian!"
+            elif '+' in L[1]:
+                self.error = "Error: the '+' operator must\ntake operands that are previously\nstored variable names\nPress Backspace and try again!"
+            else:
+                self.error = "Error: when assigning molecules,\nplease only use 'c' and 'h' atoms,\nor put atoms in parentheses\nto make it a branch.\nPress Backspace and try again!"
+    # for when the mouse has been released
     def mouseReleased(self, event):
         self.xDragging, self.yDragging, self.zoomDragging = False, False, False
+    # canonical redrawAll function
     def redrawAll(self, canvas):
         self.drawMolView(canvas)
         self.drawSlider(canvas)
@@ -192,10 +216,12 @@ class SimpleMoleculeViewAndShell(App):
         self.drawShell(canvas)
         self.drawClearShellButton(canvas)
         self.drawSplash(canvas)
+    # helper to draw the molView
     def drawMolView(self, canvas):
         for molecule in self.molecules:
             if molecule == self.moleculeInView:
                 self.drawMolecule(canvas, self.molecules[molecule].smiles)
+    # helper to draw molecule in the molView
     def drawMolecule(self, canvas, smiles):
         a = SimpleMolecule(smiles)
         bondVectors = a.bondVectors
@@ -228,6 +254,7 @@ class SimpleMoleculeViewAndShell(App):
                 #vector = rotX(self.thetaX, rotY(self.thetaY, vector))
                 vector = vec + self.offset
                 canvas.create_oval((vector[0][0] - radius), (vector[1][0] - radius), (vector[0][0] + radius), (vector[1][0] + radius), fill=color)    
+    # helper to rotate the bonds and atoms by the angles specified
     def rotateBondsAndAtoms(self, bondAndAtomVectors):
         thetaX = self.thetaX
         thetaY = self.thetaY
@@ -253,7 +280,7 @@ class SimpleMoleculeViewAndShell(App):
             left = self.sortVectors(L[:mid])
             right = self.sortVectors(L[mid:])
             return self.merge(left, right)
-    def merge(self, A, B):
+    def merge(self, A, B): # mergeSort modified from CMU 112 website
     # heavily inspired by https://www.cs.cmu.edu/~112/notes/notes-recursion-part1.html
         C = [ ]
         i = j = 0
@@ -275,7 +302,8 @@ class SimpleMoleculeViewAndShell(App):
                 C.append(B[j])
                 j += 1
         return C
-    def drawMolOptionsView(self, canvas):
+    # draws molOptionsView (below molView)
+    def drawMolOptionsView(self, canvas): 
         count = 0
         for molecule in self.molecules:
             x0, y0, x1, y1 = self.getCellBoundsOfMolCell(count)
@@ -285,6 +313,7 @@ class SimpleMoleculeViewAndShell(App):
             canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=molecule)
             count += 1
             if count >= self.maxRows * self.maxCols: break
+    # helper to draw the sliders
     def drawSlider(self, canvas):
         sliderXPosX, sliderXPosY = self.sliderX
         sliderYPosX, sliderYPosY = self.sliderY
@@ -296,6 +325,7 @@ class SimpleMoleculeViewAndShell(App):
         canvas.create_oval(sliderYPosX - r, sliderYPosY - r, sliderYPosX + r, sliderYPosY + r, fill='yellow')
         canvas.create_oval(sliderXPosX - r, sliderXPosY - r, sliderXPosX + r, sliderXPosY + r, fill='yellow')
         canvas.create_oval(sliderZoomPosX - r, sliderZoomPosY - r, sliderZoomPosX + r, sliderZoomPosY + r, fill='cyan')
+    # helper to draw the shell and all the cells in it
     def drawShell(self, canvas):
         cellHeight = (self.shellHeight - 2 * self.margin) / self.maxCellsInShell
         count = 0
@@ -303,7 +333,7 @@ class SimpleMoleculeViewAndShell(App):
         for command in self.commands:
             x0, y0, x1, y1 = self.getShellMargins(count, cellHeight)
             canvas.create_rectangle(x0, y0, x1, y1)
-            canvas.create_text(x0 + insideCellMargin, y0 + insideCellMargin, text=command, font=f'Montserrat {int(cellHeight - 2 * insideCellMargin)}', anchor='nw')
+            canvas.create_text(x0 + insideCellMargin, y0 + insideCellMargin, text=command, font=f'Arial {int(cellHeight - 2 * insideCellMargin)}', anchor='nw')
             count += 1
         lastIndex = len(self.commands)
         x0, y0, x1, y1 = self.getShellMargins(lastIndex, cellHeight)
@@ -312,26 +342,33 @@ class SimpleMoleculeViewAndShell(App):
         if self.cellInError: color = 'red'
         canvas.create_rectangle(x0, y0, x1, y1, fill=color)
         currentCommand = self.currentCommand
-        canvas.create_text(x0 + insideCellMargin, y0 + insideCellMargin, text=self.currentCommand, font=f'Montserrat {int(cellHeight - 2 * insideCellMargin)}', anchor='nw')
+        canvas.create_text(x0 + insideCellMargin, y0 + insideCellMargin, text=self.currentCommand, font=f'Arial {int(cellHeight - 2 * insideCellMargin)}', anchor='nw')
+        if self.cellInError and self.errorSplashCoords != (None, None):
+            x, y = self.errorSplashCoords
+            x0, y0 = x - 250, y
+            x1, y1 = x, y + 100
+            canvas.create_rectangle(x0, y0, x1, y1, fill="orange")
+            canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=self.error)
+    # helper to get shellBounds
     def getShellMargins(self, count, cellHeight):
         x1 = self.width - self.margin - self.cellInShellMargin
         x0 = self.molViewWidth + self.margin + self.cellInShellMargin
         y0 = self.margin + self.cellInShellMargin + count * cellHeight
         y1 = y0 + cellHeight + self.cellInShellMargin
         return x0, y0, x1, y1
+    # helper to draw the clearShellButton
     def drawClearShellButton(self, canvas):
         clearButtonHeight = 3 * self.margin - 2 * self.buttonMargins
         clearButtonWidth = self.shellWidth / 2 - 1.5 * self.buttonMargins
         x0, y0 = self.buttonMargins + self.molViewWidth, self.height - 3 * self.margin + self.buttonMargins
         x1, y1 = x0 + clearButtonWidth, y0 + clearButtonHeight
         canvas.create_rectangle(x0, y0, x1, y1, fill="red")
-        canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, font=f"Montserrat {int(clearButtonHeight - 2 * self.buttonMargins)}", text="Clear Shell")
+        canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, font=f"Arial {int(clearButtonHeight - 2 * self.buttonMargins)}", text="Clear Shell")
+    # helper that draws the splash screens (when hovering on top of the atoms)
     def drawSplash(self, canvas):
         if self.showSplash:
             x0, y0 = self.splashX, self.splashY
             x1, y1 = x0 + 3 * self.splashDims, y0 + self.splashDims
             canvas.create_rectangle(x0, y0, x1, y1, fill='lightGreen')
             canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=f"{self.splashMolecule.upper()}")
-    def scalingFunction(self, ratio): self.zScale = 500 - 400 * ratio
-
 SimpleMoleculeViewAndShell(width=1200, height=600)
