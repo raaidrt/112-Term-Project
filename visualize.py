@@ -59,6 +59,18 @@ class SimpleMoleculeViewAndShell(App):
         elif (sliderZoomPosX - self.sliderR <= event.x <= sliderZoomPosX + self.sliderR) and (sliderZoomPosY - self.sliderR <= event.y <= sliderZoomPosY + self.sliderR): self.zoomDragging = True
         self.moleculeModel(event)
         self.clearShellButtonModel(event)
+        self.clearMemoryButtonModel(event)
+    # helper for interacting with the clearMemoryButton
+    def clearMemoryButtonModel(self, event):
+        clearButtonHeight = 3 * self.margin - 2 * self.buttonMargins
+        clearButtonWidth = self.shellWidth / 2 - 1.5 * self.buttonMargins
+        x1 = self.width - self.buttonMargins
+        x0 = x1 - clearButtonWidth
+        y0 = self.height - 3 * self.margin + self.buttonMargins
+        y1 = y0 + clearButtonHeight
+        if x0 <= event.x <= x1 and y0 <= event.y <= y1: 
+            self.molecules = {}
+            self.moleculeInView = None
     # for when the mouse hovers over a particular atom or cell in the shell
     def mouseMoved(self, event):
         if self.cellInError and self.coordsOnCurrentCell(event.x, event.y):
@@ -216,6 +228,17 @@ class SimpleMoleculeViewAndShell(App):
         self.drawShell(canvas)
         self.drawClearShellButton(canvas)
         self.drawSplash(canvas)
+        self.drawClearMemoryButton(canvas)
+    # helper to draw clearMemoryButton
+    def drawClearMemoryButton(self, canvas):
+        clearButtonHeight = 3 * self.margin - 2 * self.buttonMargins
+        clearButtonWidth = self.shellWidth / 2 - 1.5 * self.buttonMargins
+        x1 = self.width - self.buttonMargins
+        x0 = x1 - clearButtonWidth
+        y0 = self.height - 3 * self.margin + self.buttonMargins
+        y1 = y0 + clearButtonHeight
+        canvas.create_rectangle(x0, y0, x1, y1, fill="lightGreen")
+        canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, font=f"Arial {int(clearButtonHeight - 2 * self.buttonMargins)}", text="Clear Memory")
     # helper to draw the molView
     def drawMolView(self, canvas):
         for molecule in self.molecules:
