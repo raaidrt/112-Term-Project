@@ -1,1 +1,2 @@
-from visualize import *
+from visualize import SimpleMoleculeViewAndShell
+SimpleMoleculeViewAndShell(width=1200, height=600)

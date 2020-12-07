@@ -13,19 +13,19 @@ def matmul(*matrices):
                 for j in range(p): temp[i,j] = sum([result[i,k] * M[k,j] for k in range(n)])
             result = temp
     return result
-def rotX(theta, M):
+def rotX(theta, M): # for rotating by angle theta about x-axis
     # matrices from https://en.wikipedia.org/wiki/Rotation_matrix
     rotMat = np.array([[1, 0, 0],
                         [0, np.cos(theta), -np.sin(theta)],
                         [0, np.sin(theta), np.cos(theta)]])
     return matmul(rotMat, M)
-def rotY(theta, M):
+def rotY(theta, M): # for rotating by angle theta about y-axis
     # matrices from https://en.wikipedia.org/wiki/Rotation_matrix
     rotMat = np.array([[np.cos(theta), 0, np.sin(theta)],
                         [0, 1, 0],
                         [-np.sin(theta), 0, np.cos(theta)]])
     return matmul(rotMat, M)
-def rotZ(theta, M):
+def rotZ(theta, M): # for rotating by angle theta about Z-axis
     # matrices from https://en.wikipedia.org/wiki/Rotation_matrix
     rotMat = np.array([[np.cos(theta), -np.sin(theta), 0],
                        [np.sin(theta), np.cos(theta), 0],

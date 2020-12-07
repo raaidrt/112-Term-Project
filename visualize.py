@@ -168,6 +168,7 @@ class SimpleMoleculeViewAndShell(App):
         self.cellHiLited = (x0 <= event.x <= x1 and y0 <= event.y <= y1)
     # for interacting with the shell by pressing keys
     def keyPressed(self, event):
+        if event.key in ['Up','Down','Left','Right','Space','Tab']: return
         if self.cellHiLited:
             if event.key == 'Enter':
                 try: self.evaluate(self.currentCommand)
@@ -186,6 +187,24 @@ class SimpleMoleculeViewAndShell(App):
                 self.currentCommand += event.key
     # evaluating strings of commands entered in the shell
     def evaluate(self, s):
+        testStr = s[4:]
+        for sign in ['==','>=','<=','>','<','!=']:
+            if sign in testStr and '->' not in testStr:
+                op1 = testStr.split(sign)[0]
+                op2 = testStr.split(sign)[1]
+                if sign == '==': 
+                    assert(self.molecules[op1] == self.molecules[op2])
+                elif sign == '>': 
+                    assert(self.molecules[op1] > self.molecules[op2])
+                elif sign == '>=':
+                    assert(self.molecules[op1] >= self.molecules[op2])
+                elif sign == '<':
+                    assert(self.molecules[op1] < self.molecules[op2])
+                elif sign == '<=': 
+                    assert(self.molecules[op1] <= self.molecules[op2])
+                elif sign == '!=': 
+                    assert(self.molecules[op1] != self.molecules[op2])
+                return
         if '->' in s:
             L = s.split('->')
             varName = L[0][4:]
@@ -206,8 +225,14 @@ class SimpleMoleculeViewAndShell(App):
             else:
                 returnValue = SimpleMolecule(L[1])
             self.molecules[varName] = returnValue
+        else: raise Exception()
     # evaluating command strings that contain some error in the shell
     def evaluateError(self, s):
+        testStr = s[4:]
+        for sign in ['==','>=','<=','>','<','!=']:
+            if sign in testStr and '->' not in testStr:
+                self.error = "Error: assertion error while\nusing relational operators\ni.e. assertion was False or syntax error. \nPress Backspace to try again!"
+                return
         if '->' in s:
             L = s.split('->')
             varName = L[0][4]
@@ -217,6 +242,8 @@ class SimpleMoleculeViewAndShell(App):
                 self.error = "Error: the '+' operator must\ntake operands that are previously\nstored variable names\nPress Backspace and try again!"
             else:
                 self.error = "Error: when assigning molecules,\nplease only use 'c' and 'h' atoms,\nor put atoms in parentheses\nto make it a branch.\nPress Backspace and try again!"
+        else:
+            self.error = "Error: must use assignment operator\n'->' somewhere in command. \nPress Backspace and try again!"
     # for when the mouse has been released
     def mouseReleased(self, event):
         self.xDragging, self.yDragging, self.zoomDragging = False, False, False
@@ -308,7 +335,7 @@ class SimpleMoleculeViewAndShell(App):
         C = [ ]
         i = j = 0
         while ((i < len(A)) or (j < len(B))):
-            try:
+            try: # <- my contribution starts here
                 if type(A[i]) == list: # i.e. is it a bondVector
                     valInA = min(A[i][0][2][0], A[i][1][2][0])
                 else: # i.e. is it a tuple of an atomVector
@@ -318,7 +345,7 @@ class SimpleMoleculeViewAndShell(App):
                 else:
                     valInB = B[j][1][2][0]
             except: pass
-            if ((j == len(B)) or ((i < len(A)) and (valInA <= valInB))):
+            if ((j == len(B)) or ((i < len(A)) and (valInA <= valInB))): # <- my contribution ends here
                 C.append(A[i])
                 i += 1
             else:
@@ -394,4 +421,3 @@ class SimpleMoleculeViewAndShell(App):
             x1, y1 = x0 + 3 * self.splashDims, y0 + self.splashDims
             canvas.create_rectangle(x0, y0, x1, y1, fill='lightGreen')
             canvas.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=f"{self.splashMolecule.upper()}")
-SimpleMoleculeViewAndShell(width=1200, height=600)
