@@ -13,7 +13,9 @@ Then, install tkinter by running the following command on your terminal:
 
 ### On Linux
 Install tkinter by running the following command on your terminal:
+
 ```sudo apt-get update```
+
 ```sudo apt-get install python3-tk```
 
 Video Demo of Use: [YouTube](https://youtu.be/kGgcVsoo-O4)
