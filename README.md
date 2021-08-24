@@ -1,4 +1,8 @@
-# 112-Term-Project
+# Molecule Visualizer
+
+for CMU 15-112 Term Project
+
+Video Demo of Use: [YouTube](https://youtu.be/kGgcVsoo-O4)
 
 Libraries required: Tkinter, numpy
 
@@ -17,8 +21,6 @@ Install tkinter by running the following command on your terminal:
 ```sudo apt-get update```
 
 ```sudo apt-get install python3-tk```
-
-Video Demo of Use: [YouTube](https://youtu.be/kGgcVsoo-O4)
 
 ### Running the Simulation
 To use the library, run the main.py file by first moving into the 112-Term-Project library, then running:
