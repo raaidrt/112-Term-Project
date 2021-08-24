@@ -18,5 +18,6 @@ Install tkinter by running the following command on your terminal:
 
 Video Demo of Use: [YouTube](https://youtu.be/kGgcVsoo-O4)
 
+### Running the Simulation
 To use the library, run the main.py file by first moving into the 112-Term-Project library, then running:
 ```python3 main.py```
